@@ -23,7 +23,9 @@ class ForeignKeySearchWidget(forms.TextInput):
             attrs['class'] = 'select-search'
         else:
             attrs['class'] = attrs['class'] + ' select-search'
-        attrs['data-search-url'] = self.admin_view.admin_urlname('%s_%s_changelist' % (to_opts.app_label, to_opts.module_name))
+        attrs['data-search-url'] = self.admin_view.admin_urlname(
+            f'{to_opts.app_label}_{to_opts.module_name}_changelist'
+        )
         attrs['data-placeholder'] = _('Search for a %s') % to_opts.verbose_name
         if value:
             attrs['data-label'] = self.label_for_value(value)
@@ -42,11 +44,14 @@ class RelateFieldPlugin(BaseAdminPlugin):
 
     def get_field_style(self, attrs, db_field, style, **kwargs):
         # search able fk field
-        if style == 'fk-ajax' and isinstance(db_field, models.ForeignKey):
-            if (db_field.rel.to in self.admin_view.admin_site._registry) and \
-                self.has_model_perm(db_field.rel.to, 'change'):
-                db = kwargs.get('using')
-                return dict(attrs or {}, widget=ForeignKeySearchWidget(db_field.rel, self.admin_view, using=db))
+        if (
+            style == 'fk-ajax'
+            and isinstance(db_field, models.ForeignKey)
+            and (db_field.rel.to in self.admin_view.admin_site._registry)
+            and self.has_model_perm(db_field.rel.to, 'change')
+        ):
+            db = kwargs.get('using')
+            return dict(attrs or {}, widget=ForeignKeySearchWidget(db_field.rel, self.admin_view, using=db))
         return attrs
 
 site.register_plugin(RelateFieldPlugin, ModelFormAdminView)

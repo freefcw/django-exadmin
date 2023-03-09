@@ -117,37 +117,33 @@ class Layout(LayoutObject):
         self.fields = list(fields)
 
     def render(self, form, form_style, context):
-        html = ""
-        for field in self.fields:
-            html += render_field(field, form, form_style, context)
-        return html
+        return "".join(
+            render_field(field, form, form_style, context) for field in self.fields
+        )
 
 
 class LayoutSlice(object):
     def __init__(self, layout, key):
         self.layout = layout
-        if isinstance(key, (int, long)):
-            self.slice = slice(key, key+1, 1)
-        else:
-            self.slice = key
+        self.slice = slice(key, key+1, 1) if isinstance(key, (int, long)) else key
 
     def wrapped_object(self, LayoutClass, fields, *args, **kwargs):
         """
         Returns a layout object of type `LayoutClass` with `args` and `kwargs` that
         wraps `fields` inside.
         """
-        if args:
-            if isinstance(fields, list):
-                arguments = args + tuple(fields)
-            else:
-                arguments = args + (fields,)
-
-            return LayoutClass(*arguments, **kwargs)
+        if not args:
+            return (
+                LayoutClass(*fields, **kwargs)
+                if isinstance(fields, list)
+                else LayoutClass(fields, **kwargs)
+            )
+        if isinstance(fields, list):
+            arguments = args + tuple(fields)
         else:
-            if isinstance(fields, list):
-                return LayoutClass(*fields, **kwargs)
-            else:
-                return LayoutClass(fields, **kwargs)
+            arguments = args + (fields,)
+
+        return LayoutClass(*arguments, **kwargs)
 
     def wrap(self, LayoutClass, *args, **kwargs):
         """
@@ -228,15 +224,14 @@ class ButtonHolder(LayoutObject):
 
     def __init__(self, *fields, **kwargs):
         self.fields = list(fields)
-        self.css_class = kwargs.get('css_class', None)
-        self.css_id = kwargs.get('css_id', None)
+        self.css_class = kwargs.get('css_class')
+        self.css_id = kwargs.get('css_id')
         self.template = kwargs.get('template', self.template)
 
     def render(self, form, form_style, context):
-        html = u''
-        for field in self.fields:
-            html += render_field(field, form, form_style, context)
-
+        html = u''.join(
+            render_field(field, form, form_style, context) for field in self.fields
+        )
         return render_to_string(self.template, Context({'buttonholder': self, 'fields_output': html}))
 
 
@@ -253,7 +248,7 @@ class BaseInput(object):
         self.attrs = {}
 
         if kwargs.has_key('css_class'):
-            self.field_classes += ' %s' % kwargs.pop('css_class')
+            self.field_classes += f" {kwargs.pop('css_class')}"
 
         self.template = kwargs.pop('template', self.template)
         self.flat_attrs = flatatt(kwargs)
@@ -342,13 +337,12 @@ class Fieldset(LayoutObject):
         self.flat_attrs = flatatt(kwargs)
 
     def render(self, form, form_style, context):
-        fields = ''
-        for field in self.fields:
-            fields += render_field(field, form, form_style, context)
-
+        fields = ''.join(
+            render_field(field, form, form_style, context) for field in self.fields
+        )
         legend = ''
         if self.legend:
-            legend = u'%s' % Template(unicode(self.legend)).render(context)
+            legend = f'{Template(unicode(self.legend)).render(context)}'
         return render_to_string(self.template, Context({'fieldset': self, 'legend': legend, 'fields': fields, 'form_style': form_style}))
 
 
@@ -370,13 +364,19 @@ class MultiField(LayoutObject):
         if form.errors:
             self.css_class += " error"
 
-        # We need to render fields using django-uni-form render_field so that MultiField can
-        # hold other Layout objects inside itself
-        fields_output = u''
         self.bound_fields = []
-        for field in self.fields:
-            fields_output += render_field(field, form, form_style, context, 'uni_form/multifield.html', self.label_class, layout_object=self)
-
+        fields_output = u''.join(
+            render_field(
+                field,
+                form,
+                form_style,
+                context,
+                'uni_form/multifield.html',
+                self.label_class,
+                layout_object=self,
+            )
+            for field in self.fields
+        )
         return render_to_string(self.template, Context({'multifield': self, 'fields_output': fields_output}))
 
 
@@ -394,7 +394,7 @@ class Div(LayoutObject):
         self.fields = list(fields)
 
         if hasattr(self, 'css_class') and kwargs.has_key('css_class'):
-            self.css_class += ' %s' % kwargs.pop('css_class')
+            self.css_class += f" {kwargs.pop('css_class')}"
         if not hasattr(self, 'css_class'):
             self.css_class = kwargs.pop('css_class', None)
 
@@ -403,10 +403,9 @@ class Div(LayoutObject):
         self.flat_attrs = flatatt(kwargs)
 
     def render(self, form, form_style, context):
-        fields = ''
-        for field in self.fields:
-            fields += render_field(field, form, form_style, context)
-
+        fields = ''.join(
+            render_field(field, form, form_style, context) for field in self.fields
+        )
         return render_to_string(self.template, Context({'div': self, 'fields': fields}))
 
 
@@ -532,7 +531,7 @@ class Field(LayoutObject):
 
         if kwargs.has_key('css_class'):
             if 'class' in self.attrs:
-                self.attrs['class'] += " %s" % kwargs.pop('css_class')
+                self.attrs['class'] += f" {kwargs.pop('css_class')}"
             else:
                 self.attrs['class'] = kwargs.pop('css_class')
 
@@ -542,10 +541,17 @@ class Field(LayoutObject):
         self.attrs.update(dict([(k.replace('_', '-'), conditional_escape(v)) for k,v in kwargs.items()]))
 
     def render(self, form, form_style, context):
-        html = ''
-        for field in self.fields:
-            html += render_field(field, form, form_style, context, template=self.template, attrs=self.attrs)
-        return html
+        return ''.join(
+            render_field(
+                field,
+                form,
+                form_style,
+                context,
+                template=self.template,
+                attrs=self.attrs,
+            )
+            for field in self.fields
+        )
 
 class MultiWidgetField(Field):
     """

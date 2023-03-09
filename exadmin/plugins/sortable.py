@@ -19,8 +19,7 @@ class SortablePlugin(BaseAdminPlugin):
 
     # Block Views
     def block_top_toolbar(self, context, nodes):
-        if self.sortable_fields:
-            pass
+        pass
             # current_refresh = self.request.GET.get(REFRESH_VAR)
             # context.update({
             #     'has_refresh': bool(current_refresh),

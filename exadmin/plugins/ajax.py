@@ -27,9 +27,15 @@ class AjaxListPlugin(BaseAjaxPlugin):
         base_fields = av.base_list_display
         headers = dict([(c.field_name, c.text) for c in av.result_headers().cells if c.field_name in base_fields])
 
-        objects = [dict([(o.field_name, escape(str(o.value))) for i,o in \
-            enumerate(filter(lambda c:c.field_name in base_fields, r.cells))]) \
-            for r in av.results()]
+        objects = [
+            dict(
+                [
+                    (o.field_name, escape(str(o.value)))
+                    for o in filter(lambda c: c.field_name in base_fields, r.cells)
+                ]
+            )
+            for r in av.results()
+        ]
 
         return self.render_response({'headers': headers, 'objects': objects, 'total_count': av.result_count, 'has_more': av.has_more})
 
@@ -40,8 +46,20 @@ class JsonErrorDict(forms.util.ErrorDict):
         self.form = form
 
     def as_json(self):
-        if not self: return u''
-        return [{'id': self.form[k].auto_id if k != NON_FIELD_ERRORS else NON_FIELD_ERRORS,'name': k,'errors': v} for k,v in self.items()]
+        return (
+            [
+                {
+                    'id': self.form[k].auto_id
+                    if k != NON_FIELD_ERRORS
+                    else NON_FIELD_ERRORS,
+                    'name': k,
+                    'errors': v,
+                }
+                for k, v in self.items()
+            ]
+            if self
+            else u''
+        )
 
 class AjaxFormPlugin(BaseAjaxPlugin):
 

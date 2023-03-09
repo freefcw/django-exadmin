@@ -32,9 +32,9 @@ class ChartWidget(ModelBaseWidget):
         self.charts = {}
         self.one_chart = False
         model_admin = self.admin_site._registry[self.model]
-        chart = self.chart
-
         if hasattr(model_admin, 'data_charts'):
+            chart = self.chart
+
             if chart and chart in model_admin.data_charts:
                 self.charts = {chart : model_admin.data_charts[chart]}
                 self.one_chart = True
@@ -125,7 +125,7 @@ class ChartsView(ListAdminView):
         datas = [{"data":[], "label": label_for_field(i, self.model, model_admin=self)} for i in self.y_fields]
 
         self.make_result_list()
-        
+
         for obj in self.result_list:
             xf, attrs, value = lookup_field(self.x_field, obj, self)
             for i, yfname in enumerate(self.y_fields):
@@ -146,8 +146,8 @@ class ChartsView(ListAdminView):
                     option['xaxis']['timeformat'] = "%y/%m/%d %H:%M:%S";
         except Exception:
             pass
-            
-        option.update(self.chart.get('option', {}))
+
+        option |= self.chart.get('option', {})
 
         content = {'data': datas, 'option': option}
         json = simplejson.dumps(content, cls=JSONEncoder, ensure_ascii=False)

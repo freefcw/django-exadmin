@@ -7,8 +7,8 @@ from django import template
 
 
 TEMPLATE_PACK = getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap')
-uni_formset_template = get_template('%s/uni_formset.html' % TEMPLATE_PACK)
-uni_form_template = get_template('%s/uni_form.html' % TEMPLATE_PACK)
+uni_formset_template = get_template(f'{TEMPLATE_PACK}/uni_formset.html')
+uni_form_template = get_template(f'{TEMPLATE_PACK}/uni_form.html')
 
 register = template.Library()
 
@@ -27,13 +27,13 @@ def as_crispy_form(form):
     """
     if isinstance(form, BaseFormSet):
         if settings.DEBUG:
-            template = get_template('%s/uni_formset.html' % TEMPLATE_PACK)
+            template = get_template(f'{TEMPLATE_PACK}/uni_formset.html')
         else:
             template = uni_formset_template
         c = Context({'formset': form, 'form_show_errors': True})
     else:
         if settings.DEBUG:
-            template = get_template('%s/uni_form.html' % TEMPLATE_PACK)
+            template = get_template(f'{TEMPLATE_PACK}/uni_form.html')
         else:
             template = uni_form_template
         c = Context({'form': form, 'form_show_errors': True})
@@ -49,10 +49,10 @@ def as_crispy_errors(form):
         {{ form|as_crispy_errors }}
     """
     if isinstance(form, BaseFormSet):
-        template = get_template('%s/errors_formset.html' % TEMPLATE_PACK)
+        template = get_template(f'{TEMPLATE_PACK}/errors_formset.html')
         c = Context({'formset': form})
     else:
-        template = get_template('%s/errors.html' % TEMPLATE_PACK)
+        template = get_template(f'{TEMPLATE_PACK}/errors.html')
         c = Context({'form':form})
     return template.render(c)
 
@@ -65,6 +65,6 @@ def as_crispy_field(field):
         {% load crispy_forms_tags %}
         {{ form.field|as_crispy_field }}
     """
-    template = get_template('%s/field.html' % TEMPLATE_PACK)
+    template = get_template(f'{TEMPLATE_PACK}/field.html')
     c = Context({'field':field, 'form_show_errors': True})
     return template.render(c)

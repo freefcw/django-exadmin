@@ -88,15 +88,11 @@ class EditPatchView(ModelFormAdminView, ListAdminView):
                     text = boolean_icon(value)
                 else:
                     text = smart_unicode(value)
+            elif isinstance(f.rel, models.ManyToOneRel):
+                field_val = getattr(self.org_obj, f.name)
+                text = EMPTY_CHANGELIST_VALUE if field_val is None else field_val
             else:
-                if isinstance(f.rel, models.ManyToOneRel):
-                    field_val = getattr(self.org_obj, f.name)
-                    if field_val is None:
-                        text = EMPTY_CHANGELIST_VALUE
-                    else:
-                        text = field_val
-                else:
-                    text = display_for_field(value, f)
+                text = display_for_field(value, f)
             return mark_safe(text) if allow_tags else conditional_escape(text)
 
     @filter_hook
@@ -111,10 +107,10 @@ class EditPatchView(ModelFormAdminView, ListAdminView):
 
         if self.org_obj is None:
             raise Http404(_('%(name)s object with primary key %(key)r does not exist.') % \
-                {'name': force_unicode(self.opts.verbose_name), 'key': escape(object_id)})
+                    {'name': force_unicode(self.opts.verbose_name), 'key': escape(object_id)})
 
         pk = getattr(self.org_obj, self.org_obj._meta.pk.attname)
-        model_fields = [str(pk) + '-' + f.name for f in self.opts.fields]
+        model_fields = [f'{str(pk)}-{f.name}' for f in self.opts.fields]
         fields = [f[len(str(pk)) + 1:] for f in request.POST.keys() if f in model_fields]
 
         defaults = {

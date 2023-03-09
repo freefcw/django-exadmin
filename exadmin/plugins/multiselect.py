@@ -27,8 +27,10 @@ class SelectMultipleTransfer(forms.SelectMultiple):
 
     def render_opt(self, selected_choices, option_value, option_label):
         option_value = force_unicode(option_value)
-        return u'<option value="%s">%s</option>' % (
-            escape(option_value), conditional_escape(force_unicode(option_label))), bool(option_value in selected_choices)
+        return (
+            f'<option value="{escape(option_value)}">{conditional_escape(force_unicode(option_label))}</option>',
+            option_value in selected_choices,
+        )
 
     def render(self, name, value, attrs=None, choices=()):
         if attrs is None:
@@ -39,13 +41,15 @@ class SelectMultipleTransfer(forms.SelectMultiple):
         if value is None: value = []
         final_attrs = self.build_attrs(attrs, name=name)
 
-        selected_choices = set(force_unicode(v) for v in value)
+        selected_choices = {force_unicode(v) for v in value}
         available_output = []
         chosen_output = []
 
         for option_value, option_label in chain(self.choices, choices):
             if isinstance(option_label, (list, tuple)):
-                available_output.append(u'<optgroup label="%s">' % escape(force_unicode(option_value)))
+                available_output.append(
+                    f'<optgroup label="{escape(force_unicode(option_value))}">'
+                )
                 for option in option_label:
                     output, selected = self.render_opt(selected_choices, *option)
                     if selected:

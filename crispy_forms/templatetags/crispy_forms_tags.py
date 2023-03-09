@@ -39,7 +39,7 @@ class ForLoopSimulator(object):
         self.revcounter0 = self.len_values - 1
         # Boolean values designating first and last times through loop.
         self.first = True
-        self.last = (0 == self.len_values - 1)
+        self.last = self.len_values == 1
 
     def iterate(self):
         """
@@ -76,10 +76,7 @@ class BasicNode(template.Node):
     """
     def __init__(self, form, helper):
         self.form = form
-        if helper is not None:
-            self.helper = helper
-        else:
-            self.helper = None
+        self.helper = helper if helper is not None else None
 
     def get_render(self, context):
         """
@@ -107,7 +104,7 @@ class BasicNode(template.Node):
         else:
             # If the user names the helper within the form `helper` (standard), we use it
             # This allows us to have simplified tag syntax: {% crispy form %}
-            helper = FormHelper() if not hasattr(actual_form, 'helper') else actual_form.helper
+            helper = actual_form.helper if hasattr(actual_form, 'helper') else FormHelper()
 
         # We get the response dictionary
         is_formset = isinstance(actual_form, BaseFormSet)
@@ -115,17 +112,16 @@ class BasicNode(template.Node):
         node_context = copy_context(context)
         node_context.update(response_dict)
 
-        # If we have a helper's layout we use it, for the form or the formset's forms
         if helper and helper.layout:
-            if not is_formset:
-                actual_form.form_html = helper.render_layout(actual_form, node_context)
-            else:
+            if is_formset:
                 forloop = ForLoopSimulator(actual_form)
                 for form in actual_form.forms:
                     node_context.update({'forloop': forloop})
                     form.form_html = helper.render_layout(form, node_context)
                     forloop.iterate()
 
+            else:
+                actual_form.form_html = helper.render_layout(actual_form, node_context)
         if is_formset:
             response_dict.update({'formset': actual_form})
         else:
@@ -145,18 +141,15 @@ class BasicNode(template.Node):
             raise TypeError('helper object provided to {% crispy %} tag must be a crispy.helper.FormHelper object.')
 
         attrs = helper.get_attributes()
-        form_type = "form"
-        if is_formset:
-            form_type = "formset"
-
+        form_type = "formset" if is_formset else "form"
         # We take form/formset parameters from attrs if they are set, otherwise we use defaults
         response_dict = {
-            '%s_action' % form_type: attrs['attrs'].get("action", ''),
-            '%s_method' % form_type: attrs.get("form_method", 'post'),
-            '%s_tag' % form_type: attrs.get("form_tag", True),
-            '%s_class' % form_type: attrs['attrs'].get("class", ''),
-            '%s_id' % form_type: attrs['attrs'].get("id", ""),
-            '%s_style' % form_type: attrs.get("form_style", None),
+            f'{form_type}_action': attrs['attrs'].get("action", ''),
+            f'{form_type}_method': attrs.get("form_method", 'post'),
+            f'{form_type}_tag': attrs.get("form_tag", True),
+            f'{form_type}_class': attrs['attrs'].get("class", ''),
+            f'{form_type}_id': attrs['attrs'].get("id", ""),
+            f'{form_type}_style': attrs.get("form_style", None),
             'form_error_title': attrs.get("form_error_title", None),
             'formset_error_title': attrs.get("formset_error_title", None),
             'form_show_errors': attrs.get("form_show_errors", True),
@@ -164,7 +157,7 @@ class BasicNode(template.Node):
             'html5_required': attrs.get("html5_required", False),
             'inputs': attrs.get('inputs', []),
             'is_formset': is_formset,
-            '%s_attrs' % form_type: attrs.get('attrs', ''),
+            f'{form_type}_attrs': attrs.get('attrs', ''),
             'flat_attrs': attrs.get('flat_attrs', ''),
             'error_text_inline': attrs.get('error_text_inline', True),
         }
@@ -180,23 +173,25 @@ class BasicNode(template.Node):
         return response_dict
 
 
-whole_uni_formset_template = get_template('%s/whole_uni_formset.html' % TEMPLATE_PACK)
-whole_uni_form_template = get_template('%s/whole_uni_form.html' % TEMPLATE_PACK)
+whole_uni_formset_template = get_template(
+    f'{TEMPLATE_PACK}/whole_uni_formset.html'
+)
+whole_uni_form_template = get_template(f'{TEMPLATE_PACK}/whole_uni_form.html')
 
 class CrispyFormNode(BasicNode):
     def render(self, context):
         c = self.get_render(context)
 
         if c['is_formset']:
-            if settings.DEBUG:
-                template = get_template('%s/whole_uni_formset.html' % TEMPLATE_PACK)
-            else:
-                template = whole_uni_formset_template
+            template = (
+                get_template(f'{TEMPLATE_PACK}/whole_uni_formset.html')
+                if settings.DEBUG
+                else whole_uni_formset_template
+            )
+        elif settings.DEBUG:
+            template = get_template(f'{TEMPLATE_PACK}/whole_uni_form.html')
         else:
-            if settings.DEBUG:
-                template = get_template('%s/whole_uni_form.html' % TEMPLATE_PACK)
-            else:
-                template = whole_uni_form_template
+            template = whole_uni_form_template
 
         return template.render(c)
 

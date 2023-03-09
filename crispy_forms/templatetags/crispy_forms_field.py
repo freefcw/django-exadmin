@@ -72,16 +72,20 @@ class CrispyFieldNode(template.Node):
             css_class = widget.attrs.get('class', '')
             if css_class:
                 if css_class.find(class_name) == -1:
-                    css_class += " %s" % class_name
+                    css_class += f" {class_name}"
             else:
                 css_class = class_name
 
             widget.attrs['class'] = css_class
 
             # HTML5 required attribute
-            if html5_required and field.field.required and 'required' not in widget.attrs:
-                if field.field.widget.__class__.__name__ is not 'RadioSelect':
-                    widget.attrs['required'] = 'required'
+            if (
+                html5_required
+                and field.field.required
+                and 'required' not in widget.attrs
+                and field.field.widget.__class__.__name__ is not 'RadioSelect'
+            ):
+                widget.attrs['required'] = 'required'
 
             for attribute_name, attribute in attr.items():
                 widget.attrs[template.Variable(attribute_name).resolve(context)] = template.Variable(attribute).resolve(context)
@@ -95,10 +99,6 @@ def crispy_field(parser, token):
     """
     token = token.split_contents()
     field = token.pop(1)
-    attrs = {}
-
     tag_name = token.pop(0)
-    for attribute_name, value in pairwise(token):
-        attrs[attribute_name] = value
-
+    attrs = dict(pairwise(token))
     return CrispyFieldNode(field, attrs)

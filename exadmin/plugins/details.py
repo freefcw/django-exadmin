@@ -14,17 +14,20 @@ class DetailsPlugin(BaseAdminPlugin):
 
     def result_item(self, item, obj, field_name, row):
         if hasattr(item.field, 'rel') and isinstance(item.field.rel, models.ManyToOneRel) \
-            and (self.show_all_rel_details or (field_name in self.show_detail_fields)):
-            rel_obj = getattr(obj, field_name)
-            if rel_obj:
+                and (self.show_all_rel_details or (field_name in self.show_detail_fields)):
+            if rel_obj := getattr(obj, field_name):
                 opts = rel_obj._meta
-                item_res_uri = reverse('%s:%s_%s_detail' % (self.admin_site.app_name, opts.app_label, opts.module_name), \
-                        args=(getattr(rel_obj, opts.pk.attname),))
-                if item_res_uri:
-                    edit_url = reverse('%s:%s_%s_change' % (self.admin_site.app_name, opts.app_label, opts.module_name), \
-                        args=(getattr(rel_obj, opts.pk.attname),))
-                    item.btns.append('<a data-res-uri="%s" data-edit-uri="%s" class="details-handler" rel="tooltip" title="%s"><i class="icon-info-sign"></i></a>' \
-                        % (item_res_uri, edit_url, _(u'Details of %s' % str(rel_obj))))
+                if item_res_uri := reverse(
+                    f'{self.admin_site.app_name}:{opts.app_label}_{opts.module_name}_detail',
+                    args=(getattr(rel_obj, opts.pk.attname),),
+                ):
+                    edit_url = reverse(
+                        f'{self.admin_site.app_name}:{opts.app_label}_{opts.module_name}_change',
+                        args=(getattr(rel_obj, opts.pk.attname),),
+                    )
+                    item.btns.append(
+                        f"""<a data-res-uri="{item_res_uri}" data-edit-uri="{edit_url}" class="details-handler" rel="tooltip" title="{_(f'Details of {str(rel_obj)}')}"><i class="icon-info-sign"></i></a>"""
+                    )
         return item
 
     # Media

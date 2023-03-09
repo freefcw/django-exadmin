@@ -20,7 +20,7 @@ class RelateMenuPlugin(BaseAdminPlugin):
     def get_related_list(self):
         if hasattr(self, '_related_acts'):
             return self._related_acts
-            
+
         _related_acts = []
         for r in self.opts.get_all_related_objects() + self.opts.get_all_related_many_to_many_objects():
             if self.related_list and (r.get_accessor_name() not in self.related_list):
@@ -29,40 +29,38 @@ class RelateMenuPlugin(BaseAdminPlugin):
                 continue
             has_view_perm = self.has_model_perm(r.model, 'change')
             has_add_perm = self.has_model_perm(r.model, 'add')
-            if not (has_view_perm or has_add_perm):
-                continue
-
-            _related_acts.append((r, has_view_perm, has_add_perm))
+            if has_view_perm or has_add_perm:
+                _related_acts.append((r, has_view_perm, has_add_perm))
 
         self._related_acts = _related_acts
         return self._related_acts
     
     def related_link(self, instance):
         links =[]
-        for r, view_perm, add_perm in self.get_related_list():            
+        for r, view_perm, add_perm in self.get_related_list():        
             label = r.opts.app_label
             model_name = r.opts.module_name
             f = r.field
             rel_name = f.rel.get_related_field().name
 
             verbose_name = force_unicode(r.opts.verbose_name)
-            lookup_name = '%s__%s__exact' % (f.name, rel_name)
+            lookup_name = f'{f.name}__{rel_name}__exact'
 
-            link = ''.join(('<li class="with_menu_btn">',
-
-            '<a href="%s?%s=%s" title="%s"><i class="icon icon-th-list"></i> %s</a>' % \
-                (reverse('%s:%s_%s_changelist' % (self.admin_site.app_name, label, model_name)), \
-                    RELATE_PREFIX + lookup_name, str(instance.pk), verbose_name, verbose_name) if view_perm else \
-            '<a><span class="muted"><i class="icon icon-blank"></i> %s</span></a>' % verbose_name, 
-
-            '<a class="add_link dropdown-menu-btn" href="%s?%s=%s"><i class="icon icon-plus pull-right"></i></a>' % \
-                (reverse('%s:%s_%s_add' % (self.admin_site.app_name, label, model_name)), \
-                    RELATE_PREFIX + lookup_name, str(instance.pk)) if add_perm else "",
-
-             '</li>'))
+            link = ''.join(
+                (
+                    '<li class="with_menu_btn">',
+                    f"""<a href="{reverse(f'{self.admin_site.app_name}:{label}_{model_name}_changelist')}?{RELATE_PREFIX + lookup_name}={str(instance.pk)}" title="{verbose_name}"><i class="icon icon-th-list"></i> {verbose_name}</a>"""
+                    if view_perm
+                    else f'<a><span class="muted"><i class="icon icon-blank"></i> {verbose_name}</span></a>',
+                    f"""<a class="add_link dropdown-menu-btn" href="{reverse(f'{self.admin_site.app_name}:{label}_{model_name}_add')}?{RELATE_PREFIX + lookup_name}={str(instance.pk)}"><i class="icon icon-plus pull-right"></i></a>"""
+                    if add_perm
+                    else "",
+                    '</li>',
+                )
+            )
             links.append(link)
-        ul_html = '<ul class="dropdown-menu" role="menu">%s</ul>' % ''.join(links)
-        return '<div class="dropdown related_menu pull-left"><a class="relate_menu dropdown-toggle" data-toggle="dropdown"><i class="icon icon-list"></i></a>%s</div>' % ul_html
+        ul_html = f"""<ul class="dropdown-menu" role="menu">{''.join(links)}</ul>"""
+        return f'<div class="dropdown related_menu pull-left"><a class="relate_menu dropdown-toggle" data-toggle="dropdown"><i class="icon icon-list"></i></a>{ul_html}</div>'
     related_link.short_description = '&nbsp;'
     related_link.allow_tags = True
 
@@ -110,7 +108,9 @@ class RelateObject(object):
         else:
             to_model_name = force_unicode(self.to_model._meta.verbose_name)
 
-        return mark_safe(u"<span class='rel-brand'>%s's</span> %s" % (to_model_name, force_unicode(self.opts.verbose_name)))
+        return mark_safe(
+            f"<span class='rel-brand'>{to_model_name}'s</span> {force_unicode(self.opts.verbose_name)}"
+        )
         
 
 class BaseRelateDisplayPlugin(BaseAdminPlugin):

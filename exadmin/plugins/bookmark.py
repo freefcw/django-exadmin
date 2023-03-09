@@ -32,9 +32,24 @@ class BookmarkPlugin(BaseAdminPlugin):
 
         bookmarks = []
 
-        current_qs = '&'.join(['%s=%s' % (k,v) for k,v in sorted(\
-            filter(lambda i: bool(i[1] and (i[0] in (COL_LIST_VAR, ORDER_VAR, SEARCH_VAR) or i[0].startswith(FILTER_PREFIX) \
-                 or i[0].startswith(RELATE_PREFIX))), self.request.GET.items()))])
+        current_qs = '&'.join(
+            [
+                f'{k}={v}'
+                for k, v in sorted(
+                    filter(
+                        lambda i: bool(
+                            i[1]
+                            and (
+                                i[0] in (COL_LIST_VAR, ORDER_VAR, SEARCH_VAR)
+                                or i[0].startswith(FILTER_PREFIX)
+                                or i[0].startswith(RELATE_PREFIX)
+                            )
+                        ),
+                        self.request.GET.items(),
+                    )
+                )
+            ]
+        )
 
         model_info = (self.opts.app_label, self.opts.module_name)
         has_selected = False
@@ -51,9 +66,16 @@ class BookmarkPlugin(BaseAdminPlugin):
                 params[COL_LIST_VAR] = '.'.join(bk['cols'])
             if bk.has_key('search'):
                 params[SEARCH_VAR] = bk['search']
-            bk_qs = '&'.join(['%s=%s' % (k,v) for k,v in sorted(filter(lambda i: bool(i[1]), params.items()))])
+            bk_qs = '&'.join(
+                [
+                    f'{k}={v}'
+                    for k, v in sorted(
+                        filter(lambda i: bool(i[1]), params.items())
+                    )
+                ]
+            )
 
-            url = list_base_url + '?' + bk_qs
+            url = f'{list_base_url}?{bk_qs}'
             selected = (current_qs == bk_qs)
 
             bookmarks.append({'title': title, 'selected': selected, 'url': url})
@@ -149,12 +171,13 @@ class BookmarkWidget(PartialBaseWidget):
 
         base_fields = list_view.base_list_display
         if len(base_fields) > 5:
-            base_fields = base_fields[0:5]
+            base_fields = base_fields[:5]
 
         context['result_headers'] = [c for c in list_view.result_headers().cells if c.field_name in base_fields]
-        context['results'] = [[o for i,o in \
-            enumerate(filter(lambda c:c.field_name in base_fields, r.cells))] \
-            for r in list_view.results()]
+        context['results'] = [
+            list(filter(lambda c: c.field_name in base_fields, r.cells))
+            for r in list_view.results()
+        ]
         context['result_count'] = list_view.result_count
         context['page_url'] = self.bookmark.url
 

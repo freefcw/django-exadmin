@@ -21,8 +21,9 @@ class AdminImageWidget(forms.FileInput):
         output = []
         if value and hasattr(value, "url"):
             label=self.attrs.get('label', name)
-            output.append('<a href="%s" target="_blank" title="%s" rel="gallery"><img src="%s" class="field_img"/></a><br/>%s ' % \
-                (value.url, label, value.url, _('Change:')))
+            output.append(
+                f"""<a href="{value.url}" target="_blank" title="{label}" rel="gallery"><img src="{value.url}" class="field_img"/></a><br/>{_('Change:')} """
+            )
         output.append(super(AdminImageWidget, self).render(name, value, attrs))
         return mark_safe(u''.join(output))
 
@@ -40,11 +41,12 @@ class ModelDetailPlugin(BaseAdminPlugin):
         return attrs
 
     def get_field_result(self, result, field_name):
-        if isinstance(result.field, models.ImageField):
-            if result.value:
-                img = getattr(result.obj, field_name)
-                result.text = mark_safe('<a href="%s" target="_blank" title="%s" rel="gallery"><img src="%s" class="field_img"/></a>' % (img.url, result.label, img.url))
-                self.include_image = True
+        if isinstance(result.field, models.ImageField) and result.value:
+            img = getattr(result.obj, field_name)
+            result.text = mark_safe(
+                f'<a href="{img.url}" target="_blank" title="{result.label}" rel="gallery"><img src="{img.url}" class="field_img"/></a>'
+            )
+            self.include_image = True
         return result
 
     # Media

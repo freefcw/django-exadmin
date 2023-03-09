@@ -50,9 +50,14 @@ def _registe_model(admin, model):
             if issubclass(inline, GenericInlineModelAdmin):
                 ct_field = inline.ct_field
                 ct_fk_field = inline.ct_fk_field
-                for field in model._meta.many_to_many:
-                    if isinstance(field, GenericRelation) and field.rel.to == inline_model and field.object_id_field_name == ct_fk_field and field.content_type_field_name == ct_field:
-                        inline_fields.append(field.name)
+                inline_fields.extend(
+                    field.name
+                    for field in model._meta.many_to_many
+                    if isinstance(field, GenericRelation)
+                    and field.rel.to == inline_model
+                    and field.object_id_field_name == ct_fk_field
+                    and field.content_type_field_name == ct_field
+                )
                 _autoregister(admin, inline_model)
             else:
                 fk_name = getattr(inline, 'fk_name', None)
@@ -101,10 +106,12 @@ class ReversionPlugin(BaseAdminPlugin):
     
     def get_revision_data(self, obj, flag):
         """Returns all the revision data to be used in the object's revision."""
-        return dict(
-            (o, self.revision_manager.get_adapter(o.__class__).get_version_data(o, flag))
+        return {
+            o: self.revision_manager.get_adapter(o.__class__).get_version_data(
+                o, flag
+            )
             for o in self.get_revision_instances(obj)
-        )
+        }
 
     def save_revision(self, obj, tag, comment):
         self.revision_manager.save_revision(
@@ -157,13 +164,22 @@ class ReversionPlugin(BaseAdminPlugin):
     # Block Views
     def block_top_toolbar(self, context, nodes):
         recoverlist_url = self.admin_view.model_admin_urlname('recoverlist')
-        nodes.append(mark_safe('<a class="btn btn-small" href="%s"><i class="icon-trash"></i> %s</a>' % (recoverlist_url, _(u"Recover deleted"))))
+        nodes.append(
+            mark_safe(
+                f'<a class="btn btn-small" href="{recoverlist_url}"><i class="icon-trash"></i> {_("Recover deleted")}</a>'
+            )
+        )
 
     def block_object_tools(self, context, nodes):
-        obj = getattr(self.admin_view, 'org_obj', getattr(self.admin_view, 'obj', None))
-        if obj:
+        if obj := getattr(
+            self.admin_view, 'org_obj', getattr(self.admin_view, 'obj', None)
+        ):
             revisionlist_url = self.admin_view.model_admin_urlname('revisionlist', quote(obj.pk))
-            nodes.append(mark_safe('<a href="%s" class="btn btn-small"><i class="icon-time"></i> %s</a>' % (revisionlist_url, _(u'History'))))
+            nodes.append(
+                mark_safe(
+                    f"""<a href="{revisionlist_url}" class="btn btn-small"><i class="icon-time"></i> {_('History')}</a>"""
+                )
+            )
 
 class BaseReversionView(ModelAdminView):
 
@@ -306,22 +322,14 @@ class RevisionListView(BaseReversionView):
         obj_b, detail_b = self.get_version_object(version_b)
 
         for f in (self.opts.fields + self.opts.many_to_many):
-            if isinstance(f, RelatedObject):
-                label = f.opts.verbose_name
-            else:
-                label = f.verbose_name
-
+            label = f.opts.verbose_name if isinstance(f, RelatedObject) else f.verbose_name
             value_a = f.value_from_object(obj_a)
             value_b = f.value_from_object(obj_b)
             is_diff = value_a != value_b
 
             if type(value_a) in (list, tuple) and type(value_b) in (list, tuple) \
-                and len(value_a) == len(value_b) and is_diff:
-                is_diff = False
-                for i in xrange(len(value_a)):
-                    if value_a[i] != value_a[i]:
-                        is_diff = True
-                        break;
+                    and len(value_a) == len(value_b) and is_diff:
+                is_diff = any(value_a[i] != value_a[i] for i in xrange(len(value_a)))
             if type(value_a) is QuerySet and type(value_b) is QuerySet:
                 is_diff = list(value_a) != list(value_b)
 
@@ -358,7 +366,7 @@ class BaseRevisionView(ModelFormAdminView):
     def get_form_datas(self):
         datas = {"instance": self.org_obj, "initial": self.get_revision()}
         if self.request_method == 'post':
-            datas.update({'data': self.request.POST, 'files': self.request.FILES})
+            datas |= {'data': self.request.POST, 'files': self.request.FILES}
         return datas
 
     @filter_hook
@@ -378,11 +386,23 @@ class BaseRevisionView(ModelFormAdminView):
 class DiffField(Field):
 
     def render(self, form, form_style, context):
-        html = ''
-        for field in self.fields:
-            html += ('<div class="diff_field" rel="tooltip"><textarea class="org-data" style="display:none;">%s</textarea>%s</div>' % \
-                (_(u'Current: %s') % self.attrs.pop('orgdata',''), render_field(field, form, form_style, context, template=self.template, attrs=self.attrs)))
-        return html
+        return ''.join(
+            (
+                '<div class="diff_field" rel="tooltip"><textarea class="org-data" style="display:none;">%s</textarea>%s</div>'
+                % (
+                    _(u'Current: %s') % self.attrs.pop('orgdata', ''),
+                    render_field(
+                        field,
+                        form,
+                        form_style,
+                        context,
+                        template=self.template,
+                        attrs=self.attrs,
+                    ),
+                )
+            )
+            for field in self.fields
+        )
 
 
 class RevisionView(BaseRevisionView):
@@ -398,11 +418,12 @@ class RevisionView(BaseRevisionView):
 
     def get_form_helper(self):
         helper = super(RevisionView, self).get_form_helper()
-        diff_fields = {}
         version_data = self.version.field_dict
-        for f in self.opts.fields:
-            if f.value_from_object(self.org_obj) != version_data.get(f.name, None):
-                diff_fields[f.name] = self.detail.get_field_result(f.name).val
+        diff_fields = {
+            f.name: self.detail.get_field_result(f.name).val
+            for f in self.opts.fields
+            if f.value_from_object(self.org_obj) != version_data.get(f.name, None)
+        }
         for k,v in diff_fields.items():
             helper[k].wrap(DiffField, orgdata=v)
         return helper
@@ -469,7 +490,7 @@ class InlineDiffField(Field):
         instance = form.instance
         if not instance.pk:
             return super(InlineDiffField, self).render(form, form_style, context)
-            
+
         initial = form.initial
         opts = instance._meta
         detail = form.detail
@@ -478,8 +499,7 @@ class InlineDiffField(Field):
             f_html = render_field(field, form, form_style, context, template=self.template, attrs=self.attrs)
             if f.value_from_object(instance) != initial.get(field, None):
                 current_val = detail.get_field_result(f.name).val
-                html += ('<div class="diff_field" rel="tooltip"><textarea class="org-data" style="display:none;">%s</textarea>%s</div>' \
-                    % (_(u'Current: %s') % current_val, f_html))
+                html += f"""<div class="diff_field" rel="tooltip"><textarea class="org-data" style="display:none;">{_('Current: %s') % current_val}</textarea>{f_html}</div>"""
             else:
                 html += f_html
         return html
@@ -498,11 +518,18 @@ class InlineRevisionPlugin(BaseAdminPlugin):
             fk_name = formset.ct_fk_field.name
         # Look up the revision data.
         revision_versions = version.revision.version_set.all()
-        related_versions = dict([(related_version.object_id, related_version)
-                                 for related_version in revision_versions
-                                 if ContentType.objects.get_for_id(related_version.content_type_id).model_class() == formset.model
-                                 and unicode(related_version.field_dict[fk_name]) == unicode(object_id)])
-        return related_versions
+        return dict(
+            [
+                (related_version.object_id, related_version)
+                for related_version in revision_versions
+                if ContentType.objects.get_for_id(
+                    related_version.content_type_id
+                ).model_class()
+                == formset.model
+                and unicode(related_version.field_dict[fk_name])
+                == unicode(object_id)
+            ]
+        )
     
     def _hack_inline_formset_initial(self, revision_view, formset):
         """Hacks the given formset to contain the correct initial data."""
@@ -528,17 +555,24 @@ class InlineRevisionPlugin(BaseAdminPlugin):
         # Hack the formset to force a save of everything.
         def get_changed_data(form):
             return [field.name for field in form.fields]
+
         for form in formset.forms:
             form.has_changed = lambda: True
             form._get_changed_data = partial(get_changed_data, form=form)
         def total_form_count_hack(count):
             return lambda: count
+
         formset.total_form_count = total_form_count_hack(len(initial))
 
         if self.request.method == 'GET' and formset.helper and formset.helper.layout:
             helper = formset.helper
             helper.filter(basestring).wrap(InlineDiffField)
-            fake_admin_class = type.__new__(type, '%s%sFakeAdmin' % (self.opts.app_label, self.opts.module_name), (object, ), {'model': self.model})
+            fake_admin_class = type.__new__(
+                type,
+                f'{self.opts.app_label}{self.opts.module_name}FakeAdmin',
+                (object,),
+                {'model': self.model},
+            )
             for form in formset.forms:
                 instance = form.instance
                 if instance.pk:

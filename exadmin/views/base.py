@@ -37,20 +37,20 @@ class IncorrectPluginArg(Exception):
 def filter_chain(filters, token, func, *args, **kwargs):
     if token == -1:
         return func()
-    else:
-        def _inner_method():
-            fm = filters[token]
-            fargs = getargspec(fm)[0]
-            if len(fargs) == 1:
-                # Only self arg
-                result = func()
-                if result is None:
-                    return fm()
-                else:
-                    raise IncorrectPluginArg(_(u'Plugin filter method need a arg to receive parent method result.'))
+    def _inner_method():
+        fm = filters[token]
+        fargs = getargspec(fm)[0]
+        if len(fargs) == 1:
+            # Only self arg
+            result = func()
+            if result is None:
+                return fm()
             else:
-                return fm(func if fargs[1] == '__' else func(), *args, **kwargs)
-        return filter_chain(filters, token-1, _inner_method, *args, **kwargs)
+                raise IncorrectPluginArg(_(u'Plugin filter method need a arg to receive parent method result.'))
+        else:
+            return fm(func if fargs[1] == '__' else func(), *args, **kwargs)
+
+    return filter_chain(filters, token-1, _inner_method, *args, **kwargs)
 
 def filter_hook(func):
     tag = func.__name__
@@ -120,14 +120,18 @@ class BaseAdminObject(object):
         return self.get_view(view_class, self.admin_site._registry.get(model), *args, **kwargs)
 
     def admin_urlname(self, name, *args, **kwargs):
-        return reverse('%s:%s' % (self.admin_site.app_name, name), args=args, kwargs=kwargs)
+        return reverse(f'{self.admin_site.app_name}:{name}', args=args, kwargs=kwargs)
 
     def get_model_url(self, model, name, *args, **kwargs):
-        return reverse('%s:%s_%s_%s' % (self.admin_site.app_name, model._meta.app_label, model._meta.module_name, name), \
-            args=args, kwargs=kwargs, current_app=self.admin_site.name)
+        return reverse(
+            f'{self.admin_site.app_name}:{model._meta.app_label}_{model._meta.module_name}_{name}',
+            args=args,
+            kwargs=kwargs,
+            current_app=self.admin_site.name,
+        )
 
     def get_model_perm(self, model, name):
-        return '%s.%s_%s' % (model._meta.app_label, name, model._meta.module_name)
+        return f'{model._meta.app_label}.{name}_{model._meta.module_name}'
 
     def has_model_perm(self, model, name, user=None):
         user = user or self.user
@@ -138,7 +142,7 @@ class BaseAdminObject(object):
         if remove is None: remove = []
         p = dict(self.request.GET.items()).copy()
         for r in remove:
-            for k in p.keys():
+            for k in p:
                 if k.startswith(r):
                     del p[k]
         for k, v in new_params.items():
@@ -147,14 +151,14 @@ class BaseAdminObject(object):
                     del p[k]
             else:
                 p[k] = v
-        return '?%s' % urlencode(p)
+        return f'?{urlencode(p)}'
 
     def get_form_params(self, new_params=None, remove=None):
         if new_params is None: new_params = {}
         if remove is None: remove = []
         p = dict(self.request.GET.items()).copy()
         for r in remove:
-            for k in p.keys():
+            for k in p:
                 if k.startswith(r):
                     del p[k]
         for k, v in new_params.items():
@@ -163,8 +167,13 @@ class BaseAdminObject(object):
                     del p[k]
             else:
                 p[k] = v
-        return mark_safe(''.join(
-            '<input type="hidden" name="%s" value="%s"/>' % (k, v) for k,v in p.items() if v))
+        return mark_safe(
+            ''.join(
+                f'<input type="hidden" name="{k}" value="{v}"/>'
+                for k, v in p.items()
+                if v
+            )
+        )
 
     def render_response(self, content, response_type='json'):
         if response_type == 'json':
@@ -280,7 +289,7 @@ class CommAdminView(BaseAdminView):
                 'perm': self.get_model_perm(model, 'change')
             }
 
-            app_key = "app:%s" % app_label
+            app_key = f"app:{app_label}"
             if app_key in nav_menu:
                 nav_menu[app_key]['menus'].append(model_dict)
             else:
@@ -372,8 +381,11 @@ class ModelAdminView(CommAdminView):
             return None
 
     def model_admin_urlname(self, name, *args, **kwargs):
-        return reverse("%s:%s_%s_%s" % (self.admin_site.app_name, self.opts.app_label, \
-            self.module_name, name), args=args, kwargs=kwargs)
+        return reverse(
+            f"{self.admin_site.app_name}:{self.opts.app_label}_{self.module_name}_{name}",
+            args=args,
+            kwargs=kwargs,
+        )
 
     def get_model_perms(self):
         """
@@ -391,9 +403,9 @@ class ModelAdminView(CommAdminView):
     def get_template_list(self, template_name):
         opts = self.opts
         return (
-            "admin/%s/%s/%s" % (opts.app_label, opts.object_name.lower(), template_name),
-            "admin/%s/%s" % (opts.app_label, template_name),
-            "admin/%s" % template_name,
+            f"admin/{opts.app_label}/{opts.object_name.lower()}/{template_name}",
+            f"admin/{opts.app_label}/{template_name}",
+            f"admin/{template_name}",
         )
 
     def get_ordering(self):

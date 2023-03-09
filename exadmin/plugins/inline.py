@@ -110,10 +110,7 @@ class InlineModelAdmin(ModelFormAdminView):
     @filter_hook
     def get_formset(self, **kwargs):
         """Returns a BaseInlineFormSet class for use in admin add/change views."""
-        if self.exclude is None:
-            exclude = []
-        else:
-            exclude = list(self.exclude)
+        exclude = [] if self.exclude is None else list(self.exclude)
         exclude.extend(self.get_readonly_fields())
         if self.exclude is None and hasattr(self.form, '_meta') and self.form._meta.exclude:
             # Take the custom ModelForm's Meta.exclude into account only if the
@@ -132,8 +129,7 @@ class InlineModelAdmin(ModelFormAdminView):
             "extra": self.extra,
             "max_num": self.max_num,
             "can_delete": can_delete,
-        }
-        defaults.update(kwargs)
+        } | kwargs
         return inlineformset_factory(self.parent_model, self.model, **defaults)
 
     @filter_hook
@@ -144,10 +140,11 @@ class InlineModelAdmin(ModelFormAdminView):
             'queryset': self.queryset()
         }
         if self.request_method == 'post':
-            attrs.update({
-                    'data': self.request.POST, 'files': self.request.FILES,
-                    'save_as_new': "_saveasnew" in self.request.POST
-                })
+            attrs |= {
+                'data': self.request.POST,
+                'files': self.request.FILES,
+                'save_as_new': "_saveasnew" in self.request.POST,
+            }
         instance = formset(**attrs)
         instance.view = self
 
@@ -166,7 +163,7 @@ class InlineModelAdmin(ModelFormAdminView):
 
                 rendered_fields = [i[1] for i in layout.get_field_names()]
                 layout.extend([f for f in instance[0].fields.keys() if f not in rendered_fields])
-       
+
             helper.add_layout(layout)
 
             style.update_layout(helper)
@@ -182,10 +179,10 @@ class InlineModelAdmin(ModelFormAdminView):
     def has_auto_field(self, form):
         if form._meta.model._meta.has_auto_field:
             return True
-        for parent in form._meta.model._meta.get_parent_list():
-            if parent._meta.has_auto_field:
-                return True
-        return False
+        return any(
+            parent._meta.has_auto_field
+            for parent in form._meta.model._meta.get_parent_list()
+        )
 
     def queryset(self):
         queryset = super(InlineModelAdmin, self).queryset()
@@ -197,7 +194,8 @@ class InlineModelAdmin(ModelFormAdminView):
         if self.opts.auto_created:
             return self.has_change_permission()
         return self.user.has_perm(
-            self.opts.app_label + '.' + self.opts.get_add_permission())
+            f'{self.opts.app_label}.{self.opts.get_add_permission()}'
+        )
 
     def has_change_permission(self):
         opts = self.opts
@@ -206,21 +204,21 @@ class InlineModelAdmin(ModelFormAdminView):
                 if field.rel and field.rel.to != self.parent_model:
                     opts = field.rel.to._meta
                     break
-        return self.user.has_perm(
-            opts.app_label + '.' + opts.get_change_permission())
+        return self.user.has_perm(f'{opts.app_label}.{opts.get_change_permission()}')
 
     def has_delete_permission(self):
         if self.opts.auto_created:
             return self.has_change_permission()
         return self.user.has_perm(
-            self.opts.app_label + '.' + self.opts.get_delete_permission())
+            f'{self.opts.app_label}.{self.opts.get_delete_permission()}'
+        )
 
 class InlineFormset(Fieldset):
 
     def __init__(self, formset, allow_blank=False, **kwargs):
         self.fields = []
         self.css_class = kwargs.pop('css_class', '')
-        self.css_id = "%s-group" % formset.prefix
+        self.css_id = f"{formset.prefix}-group"
         self.template = formset.style.template
         if allow_blank and len(formset) == 0:
             self.template = 'admin/edit_inline/blank.html'
@@ -248,8 +246,7 @@ def get_first_field(layout, clz):
         if issubclass(layout_object.__class__, clz):
             return layout_object
         elif hasattr(layout_object, 'get_field_names'):
-            gf = get_first_field(layout_object, clz)
-            if gf:
+            if gf := get_first_field(layout_object, clz):
                 return gf
 
 def replace_inline_objects(layout, fs):
@@ -343,7 +340,12 @@ class DetailInlineFormsetPlugin(InlineFormsetPlugin):
             replace_field_to_value(formset.helper.layout, inline)
             model = inline.model
             opts = model._meta
-            fake_admin_class = type.__new__(type, '%s%sFakeAdmin' % (opts.app_label, opts.module_name), (object, ), {'model': model})
+            fake_admin_class = type.__new__(
+                type,
+                f'{opts.app_label}{opts.module_name}FakeAdmin',
+                (object,),
+                {'model': model},
+            )
             for form in formset.forms:
                 instance = form.instance
                 if instance.pk:

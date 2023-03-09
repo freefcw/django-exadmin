@@ -70,10 +70,9 @@ class FormActions(LayoutObject):
             self.attrs['class'] = self.attrs.pop('css_class')
 
     def render(self, form, form_style, context):
-        html = u''
-        for field in self.fields:
-            html += render_field(field, form, form_style, context)
-
+        html = u''.join(
+            render_field(field, form, form_style, context) for field in self.fields
+        )
         return render_to_string(self.template, Context({'formactions': self, 'fields_output': html}))
 
     def flat_attrs(self):
@@ -100,12 +99,17 @@ class FieldWithButtons(Div):
     template = 'bootstrap/layout/field_with_buttons.html'
 
     def render(self, form, form_style, context):
-        # We first render the buttons
-        buttons = ''
-        for field in self.fields[1:]:
-            buttons += render_field(field, form, form_style, context,
-                'bootstrap/layout/field.html', layout_object=self)
-
+        buttons = ''.join(
+            render_field(
+                field,
+                form,
+                form_style,
+                context,
+                'bootstrap/layout/field.html',
+                layout_object=self,
+            )
+            for field in self.fields[1:]
+        )
         context.update({'div': self, 'buttons': buttons})
         return render_field(self.fields[0], form, form_style, context,
             'bootstrap/layout/field_with_buttons.html')
@@ -131,7 +135,7 @@ class StrictButton(object):
             kwargs['id'] = kwargs.pop('css_id')
         kwargs['class'] = self.field_classes
         if kwargs.has_key('css_class'):
-            kwargs['class'] += " %s" % kwargs.pop('css_class')
+            kwargs['class'] += f" {kwargs.pop('css_class')}"
 
         self.flat_attrs = flatatt(kwargs)
 

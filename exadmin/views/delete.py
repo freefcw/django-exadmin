@@ -39,13 +39,19 @@ class DeleteAdminView(ModelAdminView):
     @filter_hook
     def get(self, request, object_id):
         context = self.get_context()
-        
+
         app_label = self.opts.app_label
-        return TemplateResponse(request, self.delete_confirmation_template or [
-            "admin/%s/%s/delete_confirmation.html" % (app_label, self.opts.object_name.lower()),
-            "admin/%s/delete_confirmation.html" % app_label,
-            "admin/delete_confirmation.html"
-        ], context, current_app=self.admin_site.name)
+        return TemplateResponse(
+            request,
+            self.delete_confirmation_template
+            or [
+                f"admin/{app_label}/{self.opts.object_name.lower()}/delete_confirmation.html",
+                f"admin/{app_label}/delete_confirmation.html",
+                "admin/delete_confirmation.html",
+            ],
+            context,
+            current_app=self.admin_site.name,
+        )
 
     @csrf_protect_m
     @transaction.commit_on_success
@@ -97,10 +103,12 @@ class DeleteAdminView(ModelAdminView):
     def post_response(self):
         obj_display = force_unicode(self.obj)
         self.message_user(_('The %(name)s "%(obj)s" was deleted successfully.') % \
-            {'name': force_unicode(self.opts.verbose_name), 'obj': force_unicode(obj_display)}, 'success')
+                {'name': force_unicode(self.opts.verbose_name), 'obj': force_unicode(obj_display)}, 'success')
 
-        if not self.has_change_permission(None):
-            return self.admin_urlname('index')
-        return self.model_admin_urlname('changelist')
+        return (
+            self.model_admin_urlname('changelist')
+            if self.has_change_permission(None)
+            else self.admin_urlname('index')
+        )
 
 

@@ -43,7 +43,7 @@ class IDCAdmin(object):
     
 class HostAdmin(object):
     def open_web(self, instance):
-        return "<a href='http://%s' target='_blank'>Open</a>" % instance.ip
+        return f"<a href='http://{instance.ip}' target='_blank'>Open</a>"
     open_web.short_description = "Acts"
     open_web.allow_tags = True
     open_web.is_column = True
