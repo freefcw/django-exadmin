@@ -27,11 +27,13 @@ class ShowField(Field):
         self.results = [(field, callback(field)) for field in self.fields]
 
     def render(self, form, form_style, context):
-        html = ''
-        for field, result in self.results:
-            if form.fields[field].widget != forms.HiddenInput:
-                html += loader.render_to_string(self.template, {'field': form[field], 'result': result})
-        return html
+        return ''.join(
+            loader.render_to_string(
+                self.template, {'field': form[field], 'result': result}
+            )
+            for field, result in self.results
+            if form.fields[field].widget != forms.HiddenInput
+        )
 
 class ResultField(object):
 
@@ -67,11 +69,10 @@ class ResultField(object):
                     self.text = boolean_icon(value)
                 else:
                     self.text = smart_unicode(value)
+            elif isinstance(f.rel, models.ManyToOneRel):
+                self.text = getattr(self.obj, f.name)
             else:
-                if isinstance(f.rel, models.ManyToOneRel):
-                    self.text = getattr(self.obj, f.name)
-                else:
-                    self.text = display_for_field(value, f)
+                self.text = display_for_field(value, f)
             self.field = f
             self.attr = attr
             self.value = value
@@ -80,7 +81,7 @@ class ResultField(object):
     def val(self):
         text = mark_safe(self.text) if self.allow_tags else conditional_escape(self.text)
         if force_unicode(text) == '':
-            text = mark_safe('<span class="muted">%s</span>' % _('Null'))
+            text = mark_safe(f"""<span class="muted">{_('Null')}</span>""")
         for wrap in self.wraps:
             text = mark_safe(wrap % text)
         return text
@@ -148,10 +149,7 @@ class DetailAdminView(ModelAdminView):
         Returns a Form class for use in the admin add view. This is used by
         add_view and change_view.
         """
-        if self.exclude is None:
-            exclude = []
-        else:
-            exclude = list(self.exclude)
+        exclude = [] if self.exclude is None else list(self.exclude)
         if self.exclude is None and hasattr(self.form, '_meta') and self.form._meta.exclude:
             # Take the custom ModelForm's Meta.exclude into account only if the
             # ModelAdmin doesn't define its own.
@@ -162,8 +160,7 @@ class DetailAdminView(ModelAdminView):
         defaults = {
             "form": self.form,
             "exclude": exclude,
-        }
-        defaults.update(kwargs)
+        } | kwargs
         return modelform_factory(self.model, **defaults)
 
     @filter_hook
@@ -181,10 +178,9 @@ class DetailAdminView(ModelAdminView):
     def get(self, request, *args, **kwargs):
         form = self.get_model_form()
         self.form_obj = form(instance=self.obj)
-        helper = self.get_form_helper()
-        if helper:
+        if helper := self.get_form_helper():
             self.form_obj.helper = helper
-        
+
         return self.get_response()
 
     @filter_hook
@@ -233,11 +229,17 @@ class DetailAdminView(ModelAdminView):
         context = self.get_context()
         context.update(kwargs or {})
 
-        return TemplateResponse(self.request, self.detail_template or [
-            "admin/%s/%s/detail.html" % (self.opts.app_label, self.opts.object_name.lower()),
-            "admin/%s/detail.html" % self.opts.app_label,
-            "admin/detail.html"
-        ], context, current_app=self.admin_site.name)
+        return TemplateResponse(
+            self.request,
+            self.detail_template
+            or [
+                f"admin/{self.opts.app_label}/{self.opts.object_name.lower()}/detail.html",
+                f"admin/{self.opts.app_label}/detail.html",
+                "admin/detail.html",
+            ],
+            context,
+            current_app=self.admin_site.name,
+        )
 
 
 class DetailAdminUtil(DetailAdminView):

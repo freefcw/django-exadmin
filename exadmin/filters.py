@@ -108,15 +108,18 @@ class FieldFilter(BaseFilter):
 
         for name, format in self.lookup_formats.items():
             p = format % field_path
-            self.context_params["%s_name" % name] = FILTER_PREFIX + p
+            self.context_params[f"{name}_name"] = FILTER_PREFIX + p
             if p in params:
                 value = prepare_lookup_value(p, params.pop(p))
                 self.used_params[p] = value
-                self.context_params["%s_val" % name] = value
+                self.context_params[f"{name}_val"] = value
             else:
-                self.context_params["%s_val" % name] = ''
+                self.context_params[f"{name}_val"] = ''
 
-        map(lambda kv: setattr(self, 'lookup_' + kv[0], kv[1]), self.context_params.items())
+        map(
+            lambda kv: setattr(self, f'lookup_{kv[0]}', kv[1]),
+            self.context_params.items(),
+        )
 
     def get_context(self):
         context = super(FieldFilter, self).get_context()
@@ -210,7 +213,7 @@ class NumberFieldListFilter(FieldFilter):
 
     def do_filte(self, queryset):
         params = self.used_params.copy()
-        ne_key = '%s__ne' % self.field_path
+        ne_key = f'{self.field_path}__ne'
         if params.has_key(ne_key):
             queryset = queryset.exclude(**{self.field_path: params.pop(ne_key)})
         return queryset.filter(**params)
@@ -226,7 +229,7 @@ class DateFieldListFilter(ListFieldFilter):
         return isinstance(field, models.DateField)
 
     def __init__(self, field, request, params, model, admin_view, field_path):
-        self.field_generic = '%s__' % field_path
+        self.field_generic = f'{field_path}__'
         self.date_params = dict([(FILTER_PREFIX + k, v) for k, v in params.items()
                                  if k.startswith(self.field_generic)])
 
@@ -248,7 +251,7 @@ class DateFieldListFilter(ListFieldFilter):
         else:       # field is a models.DateField
             today = now.date()
         tomorrow = today + datetime.timedelta(days=1)
-    
+
         self.links = (
             (_('Any date'), {}),
             (_('Today'), {
@@ -311,7 +314,9 @@ class RelatedFieldSearchFilter(FieldFilter):
         else:
             self.lookup_title = other_model._meta.verbose_name
         self.title = self.lookup_title
-        self.search_url = model_admin.admin_urlname('%s_%s_changelist' % (other_model._meta.app_label, other_model._meta.module_name))
+        self.search_url = model_admin.admin_urlname(
+            f'{other_model._meta.app_label}_{other_model._meta.module_name}_changelist'
+        )
         self.label = self.label_for_value(other_model, rel_name, self.lookup_exact_val) if self.lookup_exact_val else ""
 
     def label_for_value(self, other_model, rel_name, value):

@@ -24,12 +24,18 @@ def lookup_needs_distinct(opts, lookup_path):
     """
     field_name = lookup_path.split('__', 1)[0]
     field = opts.get_field_by_name(field_name)[0]
-    if ((hasattr(field, 'rel') and
-         isinstance(field.rel, models.ManyToManyRel)) or
-        (isinstance(field, models.related.RelatedObject) and
-         not field.field.unique)):
-         return True
-    return False
+    return bool(
+        (
+            (
+                hasattr(field, 'rel')
+                and isinstance(field.rel, models.ManyToManyRel)
+            )
+            or (
+                isinstance(field, models.related.RelatedObject)
+                and not field.field.unique
+            )
+        )
+    )
 
 def prepare_lookup_value(key, value):
     """
@@ -40,10 +46,7 @@ def prepare_lookup_value(key, value):
         value = value.split(',')
     # if key ends with __isnull, special case '' and false
     if key.endswith('__isnull'):
-        if value.lower() in ('', 'false'):
-            value = False
-        else:
-            value = True
+        value = value.lower() not in ('', 'false')
     return value
 
 def quote(s):
@@ -80,9 +83,9 @@ def unquote(s):
             try:
                 myappend(mychr(myatoi(item[:2], 16)) + item[2:])
             except ValueError:
-                myappend('_' + item)
+                myappend(f'_{item}')
         else:
-            myappend('_' + item)
+            myappend(f'_{item}')
     return "".join(res)
 
 
@@ -117,25 +120,22 @@ def get_deleted_objects(objs, opts, user, admin_site, using):
         opts = obj._meta
 
         if has_admin:
-            admin_url = reverse('%s:%s_%s_change'
-                                % (admin_site.name,
-                                   opts.app_label,
-                                   opts.object_name.lower()),
-                                None, (quote(obj._get_pk_val()),))
-            p = '%s.%s' % (opts.app_label,
-                           opts.get_delete_permission())
+            admin_url = reverse(
+                f'{admin_site.name}:{opts.app_label}_{opts.object_name.lower()}_change',
+                None,
+                (quote(obj._get_pk_val()),),
+            )
+            p = f'{opts.app_label}.{opts.get_delete_permission()}'
             if not user.has_perm(p):
                 perms_needed.add(opts.verbose_name)
             # Display a link to the admin page.
-            return mark_safe(u'<span class="label label-info">%s:</span> <a href="%s">%s</a>' %
-                             (escape(capfirst(opts.verbose_name)),
-                              admin_url,
-                              escape(obj)))
+            return mark_safe(
+                f'<span class="label label-info">{escape(capfirst(opts.verbose_name))}:</span> <a href="{admin_url}">{escape(obj)}</a>'
+            )
         else:
             # Don't display link to edit, because it either has no
             # admin or is edited inline.
-            return u'%s: %s' % (capfirst(opts.verbose_name),
-                                force_unicode(obj))
+            return f'{capfirst(opts.verbose_name)}: {force_unicode(obj)}'
 
     to_delete = collector.nested(format_callback)
 
@@ -175,10 +175,7 @@ class NestedObjects(Collector):
         children = []
         for child in self.edges.get(obj, ()):
             children.extend(self._nested(child, seen, format_callback))
-        if format_callback:
-            ret = [format_callback(obj)]
-        else:
-            ret = [obj]
+        ret = [format_callback(obj)] if format_callback else [obj]
         if children:
             ret.append(children)
         return ret
@@ -244,16 +241,17 @@ def lookup_field(name, obj, model_admin=None):
         if callable(name):
             attr = name
             value = attr(obj)
-        elif (model_admin is not None and hasattr(model_admin, name) and
-          not name == '__str__' and not name == '__unicode__'):
+        elif (
+            model_admin is not None
+            and hasattr(model_admin, name)
+            and name != '__str__'
+            and name != '__unicode__'
+        ):
             attr = getattr(model_admin, name)
             value = attr(obj)
         else:
             attr = getattr(obj, name)
-            if callable(attr):
-                value = attr()
-            else:
-                value = attr
+            value = attr() if callable(attr) else attr
         f = None
     else:
         attr = None
@@ -290,24 +288,18 @@ def label_for_field(name, model, model_admin=None, return_attr=False):
             elif hasattr(model, name):
                 attr = getattr(model, name)
             else:
-                message = "Unable to lookup '%s' on %s" % (name, model._meta.object_name)
+                message = f"Unable to lookup '{name}' on {model._meta.object_name}"
                 if model_admin:
-                    message += " or %s" % (model_admin.__class__.__name__,)
+                    message += f" or {model_admin.__class__.__name__}"
                 raise AttributeError(message)
 
             if hasattr(attr, "short_description"):
                 label = attr.short_description
             elif callable(attr):
-                if attr.__name__ == "<lambda>":
-                    label = "--"
-                else:
-                    label = pretty_name(attr.__name__)
+                label = "--" if attr.__name__ == "<lambda>" else pretty_name(attr.__name__)
             else:
                 label = pretty_name(name)
-    if return_attr:
-        return (label, attr)
-    else:
-        return label
+    return (label, attr) if return_attr else label
 
 def help_text_for_field(name, model):
     try:
@@ -317,27 +309,25 @@ def help_text_for_field(name, model):
     return smart_unicode(help_text)
     
 def admin_urlname(value, arg):
-    return 'admin:%s_%s_%s' % (value.app_label, value.module_name, arg)
+    return f'admin:{value.app_label}_{value.module_name}_{arg}'
 
 def boolean_icon(field_val):
     icon_url = static('exadmin/img/icon-%s.png' %
                       {True: 'yes', False: 'no', None: 'unknown'}[field_val])
-    return mark_safe(u'<img src="%s" alt="%s" />' % (icon_url, field_val))
+    return mark_safe(f'<img src="{icon_url}" alt="{field_val}" />')
 
 def display_for_field(value, field):
     from exadmin.views.list import EMPTY_CHANGELIST_VALUE
 
     if field.flatchoices:
         return dict(field.flatchoices).get(value, EMPTY_CHANGELIST_VALUE)
-    # NullBooleanField needs special-case null-handling, so it comes
-    # before the general null test.
-    elif isinstance(field, models.BooleanField) or isinstance(field, models.NullBooleanField):
+    elif isinstance(field, (models.BooleanField, models.NullBooleanField)):
         return boolean_icon(value)
     elif value is None:
         return EMPTY_CHANGELIST_VALUE
     elif isinstance(field, models.DateTimeField):
         return formats.localize(timezone.localtime(value))
-    elif isinstance(field, models.DateField) or isinstance(field, models.TimeField):
+    elif isinstance(field, (models.DateField, models.TimeField)):
         return formats.localize(value)
     elif isinstance(field, models.DecimalField):
         return formats.number_format(value, field.decimal_places)
@@ -404,10 +394,7 @@ def get_fields_from_path(model, path):
     pieces = path.split(LOOKUP_SEP)
     fields = []
     for piece in pieces:
-        if fields:
-            parent = get_model_from_relation(fields[-1])
-        else:
-            parent = model
+        parent = get_model_from_relation(fields[-1]) if fields else model
         fields.append(parent._meta.get_field_by_name(piece)[0])
     return fields
 

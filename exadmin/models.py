@@ -22,7 +22,7 @@ class Bookmark(models.Model):
     def url(self):
         base_url = reverse(self.url_name)
         if self.query:
-            base_url = base_url + '?' + self.query
+            base_url = f'{base_url}?{self.query}'
         return base_url
 
     def __unicode__(self):
@@ -40,7 +40,7 @@ class JSONEncoder(DjangoJSONEncoder):
         elif isinstance(o, decimal.Decimal):
             return str(o)
         elif isinstance(o, ModelBase):
-            return '%s.%s' % (o._meta.app_label, o._meta.module_name)
+            return f'{o._meta.app_label}.{o._meta.module_name}'
         else:
             try:
                 return super(JSONEncoder, self).default(o)
@@ -59,7 +59,7 @@ class UserSettings(models.Model):
         self.value = simplejson.dumps(obj, cls=JSONEncoder, ensure_ascii=False)
 
     def __unicode__(self):
-        return "%s %s" % (self.user, self.key)
+        return f"{self.user} {self.key}"
         
     class Meta:
         verbose_name = _('User Setting')
@@ -84,14 +84,16 @@ class UserWidget(models.Model):
         super(UserWidget, self).save(*args, **kwargs)
         if created:
             try:
-                portal_pos = UserSettings.objects.get(user=self.user, key="dashboard:%s:pos" % self.page_id)
-                portal_pos.value = "%s,%s" % (self.pk, portal_pos.value)
+                portal_pos = UserSettings.objects.get(
+                    user=self.user, key=f"dashboard:{self.page_id}:pos"
+                )
+                portal_pos.value = f"{self.pk},{portal_pos.value}"
                 portal_pos.save()
             except Exception:
                 pass
 
     def __unicode__(self):
-        return "%s %s widget" % (self.user, self.widget_type)
+        return f"{self.user} {self.widget_type} widget"
         
     class Meta:
         verbose_name = _('User Widget')

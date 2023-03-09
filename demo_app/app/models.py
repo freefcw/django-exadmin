@@ -79,8 +79,7 @@ class MaintainLog(models.Model):
     note = models.TextField()
 
     def __unicode__(self):
-        return '%s maintain-log [%s] %s %s' % (self.host.name, self.time.strftime('%Y-%m-%d %H:%M:%S'), \
-            self.maintain_type, self.hard_type)
+        return f"{self.host.name} maintain-log [{self.time.strftime('%Y-%m-%d %H:%M:%S')}] {self.maintain_type} {self.hard_type}"
         
     class Meta:
         verbose_name = u"Maintain Log"
@@ -109,4 +108,4 @@ class AccessRecord(models.Model):
         verbose_name_plural = verbose_name
 
     def __unicode__(self):
-        return "%s Access Record" % self.date.strftime('%Y-%m-%d')
+        return f"{self.date.strftime('%Y-%m-%d')} Access Record"

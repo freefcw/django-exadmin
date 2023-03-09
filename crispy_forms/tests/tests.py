@@ -181,7 +181,7 @@ class TestFormHelpers(TestCase):
         self.assertTrue('forms-that-rock' in html)
         self.assertTrue('method="get"' in html)
         self.assertTrue('id="this-form-rocks"' in html)
-        self.assertTrue('action="%s"' % reverse('simpleAction') in html)
+        self.assertTrue(f"""action="{reverse('simpleAction')}\"""" in html)
 
         if (settings.CRISPY_TEMPLATE_PACK == 'uni_form'):
             self.assertTrue('class="uniForm' in html)
@@ -427,7 +427,7 @@ class TestFormHelpers(TestCase):
         self.assertTrue('formsets-that-rock' in html)
         self.assertTrue('method="post"' in html)
         self.assertTrue('id="thisFormsetRocks"' in html)
-        self.assertTrue('action="%s"' % reverse('simpleAction') in html)
+        self.assertTrue(f"""action="{reverse('simpleAction')}\"""" in html)
         if (settings.CRISPY_TEMPLATE_PACK == 'uni_form'):
             self.assertTrue('class="uniForm' in html)
 
@@ -828,7 +828,7 @@ class TestFormLayout(TestCase):
         self.assertTrue('formsets-that-rock' in html)
         self.assertTrue('method="post"' in html)
         self.assertTrue('id="thisFormsetRocks"' in html)
-        self.assertTrue('action="%s"' % reverse('simpleAction') in html)
+        self.assertTrue(f"""action="{reverse('simpleAction')}\"""" in html)
 
         # Check form layout
         self.assertTrue('Item 1' in html)
@@ -1048,7 +1048,7 @@ class TestDynamicLayouts(TestCase):
             'password2',
         )
         helper.layout = layout
-        helper[0:3].wrap_together(Field, css_class="test-class")
+        helper[:3].wrap_together(Field, css_class="test-class")
         self.assertTrue(isinstance(layout.fields[0], Field))
         self.assertTrue(isinstance(layout.fields[0][0], Div))
         self.assertEqual(layout.fields[0][0][0], 'email')

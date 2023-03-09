@@ -55,15 +55,14 @@ class ExportPlugin(BaseAdminPlugin):
             for colx, value in enumerate(row):
                 if export_header and rowx == 0:
                     cell_style = styles['header']
+                elif isinstance(value, datetime.datetime):
+                    cell_style = styles['datetime']
+                elif isinstance(value, datetime.date):
+                    cell_style = styles['date']
+                elif isinstance(value, datetime.time):
+                    cell_style = styles['time']
                 else:
-                    if isinstance(value, datetime.datetime):
-                        cell_style = styles['datetime']
-                    elif isinstance(value, datetime.date):
-                        cell_style = styles['date']
-                    elif isinstance(value, datetime.time):
-                        cell_style = styles['time']
-                    else:
-                        cell_style = styles['default']
+                    cell_style = styles['default']
                 sheet.write(rowx, colx, value, style=cell_style)
         book.save(output)
 
@@ -73,7 +72,7 @@ class ExportPlugin(BaseAdminPlugin):
     def _format_csv_text(self, t):
         t = t.replace('"', '""').replace(',', '\,')
         if isinstance(t, basestring):
-            t = '"%s"' % t
+            t = f'"{t}"'
         return t
 
     def get_csv_export(self, context):
@@ -83,9 +82,9 @@ class ExportPlugin(BaseAdminPlugin):
         if self.request.GET.get('export_csv_header', 'off') == 'on':
             stream.append(','.join(map(self._format_csv_text, results[0].keys())))
 
-        for row in results:
-            stream.append(','.join(map(self._format_csv_text, row.values())))
-
+        stream.extend(
+            ','.join(map(self._format_csv_text, row.values())) for row in results
+        )
         return '\r\n'.join(stream)
 
     def _to_xml(self, xml, data):
@@ -127,27 +126,29 @@ class ExportPlugin(BaseAdminPlugin):
             return response
 
         file_type = self.request.GET.get('export_type', 'csv')
-        response = HttpResponse(mimetype="%s; charset=UTF-8" % self.export_mimes[file_type])
-        
+        response = HttpResponse(
+            mimetype=f"{self.export_mimes[file_type]}; charset=UTF-8"
+        )
+
         file_name = self.opts.verbose_name.replace(' ', '_')
-        response['Content-Disposition'] = ('attachment; filename=%s.%s' % (file_name, file_type)).encode('utf-8')
-        
-        response.write(getattr(self, 'get_%s_export' % file_type)(context))
+        response[
+            'Content-Disposition'
+        ] = f'attachment; filename={file_name}.{file_type}'.encode('utf-8')
+
+        response.write(getattr(self, f'get_{file_type}_export')(context))
         return response
 
     # View Methods
     def result_header(self, item, field_name, row):
         if self.request.GET.get('_do_') == 'export':
-            item.export = True
-            if item.attr and not getattr(item.attr, 'allow_export', False):
-                item.export = False
+            item.export = not item.attr or getattr(item.attr, 'allow_export', False)
         return item
 
     def result_item(self, item, obj, field_name, row):
         if self.request.GET.get('_do_') == 'export':
-            item.export = True
-            if item.field is None and not getattr(item.attr, 'allow_export', False):
-                item.export = False
+            item.export = item.field is not None or getattr(
+                item.attr, 'allow_export', False
+            )
         return item
 
     def block_top_toolbar(self, context, nodes):

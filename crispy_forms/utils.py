@@ -12,7 +12,9 @@ from django.utils.functional import SimpleLazyObject
 # Global field template, default template used for rendering a field. This way we avoid
 # loading the template every time render_field is called without a template
 TEMPLATE_PACK = getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap')
-default_field_template = SimpleLazyObject(lambda: get_template("%s/field.html" % TEMPLATE_PACK))
+default_field_template = SimpleLazyObject(
+    lambda: get_template(f"{TEMPLATE_PACK}/field.html")
+)
 
 
 def render_field(field, form, form_style, context, template=None, labelclass=None, layout_object=None, attrs=None):
@@ -40,18 +42,11 @@ def render_field(field, form, form_style, context, template=None, labelclass=Non
 
     if hasattr(field, 'render'):
         return field.render(form, form_style, context)
-    else:
         # This allows fields to be unicode strings, always they don't use non ASCII
-        try:
-            if isinstance(field, unicode):
-                field = str(field)
-            # If `field` is not unicode then we turn it into a unicode string, otherwise doing
-            # str(field) would give no error and the field would not be resolved, causing confusion
-            else:
-                field = str(unicode(field))
-
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            raise Exception("Field '%s' is using forbidden unicode characters" % field)
+    try:
+        field = str(field) if isinstance(field, unicode) else str(unicode(field))
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        raise Exception(f"Field '{field}' is using forbidden unicode characters")
 
     try:
         # Injecting HTML attributes into field's widget, Django handles rendering these
@@ -80,41 +75,39 @@ def render_field(field, form, form_style, context, template=None, labelclass=Non
 
     except KeyError:
         if not FAIL_SILENTLY:
-            raise Exception("Could not resolve form field '%s'." % field)
-        else:
-            field_instance = None
-            logging.warning("Could not resolve form field '%s'." % field, exc_info=sys.exc_info())
+            raise Exception(f"Could not resolve form field '{field}'.")
+        field_instance = None
+        logging.warning(
+            f"Could not resolve form field '{field}'.", exc_info=sys.exc_info()
+        )
 
-    if not field in form.rendered_fields:
+    if field not in form.rendered_fields:
         form.rendered_fields.add(field)
-    else:
-        if not FAIL_SILENTLY:
-            raise Exception("A field should only be rendered once: %s" % field)
-        else:
-            logging.warning("A field should only be rendered once: %s" % field, exc_info=sys.exc_info())
+    elif FAIL_SILENTLY:
+        logging.warning(
+            f"A field should only be rendered once: {field}",
+            exc_info=sys.exc_info(),
+        )
 
+    else:
+        raise Exception(f"A field should only be rendered once: {field}")
     if field_instance is None:
-        html = ''
-    else:
-        bound_field = BoundField(form, field_instance, field)
+        return ''
+    bound_field = BoundField(form, field_instance, field)
 
-        if template is None:
-            template = default_field_template
-        else:
-            template = get_template(template)
+    template = (
+        default_field_template if template is None else get_template(template)
+    )
+    # We save the Layout object's bound fields in the layout object's `bound_fields` list
+    if layout_object is not None:
+        layout_object.bound_fields.append(bound_field)
 
-        # We save the Layout object's bound fields in the layout object's `bound_fields` list
-        if layout_object is not None:
-            layout_object.bound_fields.append(bound_field)
-
-        context.update({
-            'field': bound_field,
-            'labelclass': labelclass,
-            'flat_attrs': flatatt(attrs if isinstance(attrs, dict) else {}),
-        })
-        html = template.render(context)
-
-    return html
+    context.update({
+        'field': bound_field,
+        'labelclass': labelclass,
+        'flat_attrs': flatatt(attrs if isinstance(attrs, dict) else {}),
+    })
+    return template.render(context)
 
 
 def flatatt(attrs):
@@ -125,7 +118,12 @@ def flatatt(attrs):
     XML-style pairs.  It is assumed that the keys do not need to be XML-escaped.
     If the passed dictionary is empty, then return an empty string.
     """
-    return u''.join([u' %s="%s"' % (k.replace('_', '-'), conditional_escape(v)) for k, v in attrs.items()])
+    return u''.join(
+        [
+            f""" {k.replace('_', '-')}="{conditional_escape(v)}\""""
+            for k, v in attrs.items()
+        ]
+    )
 
 
 def render_crispy_form(form, helper=None, context=None):

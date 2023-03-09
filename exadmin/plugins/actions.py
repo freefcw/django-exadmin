@@ -53,8 +53,7 @@ class DeleteSelectedAction(BaseActionView):
 
     @filter_hook
     def delete_models(self, queryset):
-        n = queryset.count()
-        if n:
+        if n := queryset.count():
             queryset.delete()
             self.message_user(_("Successfully deleted %(count)d %(items)s.") % {
                 "count": n, "items": model_ngettext(self.opts, n)
@@ -106,11 +105,17 @@ class DeleteSelectedAction(BaseActionView):
         })
 
         # Display the confirmation page
-        return TemplateResponse(self.request, self.delete_selected_confirmation_template or [
-            "admin/%s/%s/delete_selected_confirmation.html" % (self.app_label, self.opts.object_name.lower()),
-            "admin/%s/delete_selected_confirmation.html" % self.app_label,
-            "admin/delete_selected_confirmation.html"
-        ], context, current_app=self.admin_site.name)
+        return TemplateResponse(
+            self.request,
+            self.delete_selected_confirmation_template
+            or [
+                f"admin/{self.app_label}/{self.opts.object_name.lower()}/delete_selected_confirmation.html",
+                f"admin/{self.app_label}/delete_selected_confirmation.html",
+                "admin/delete_selected_confirmation.html",
+            ],
+            context,
+            current_app=self.admin_site.name,
+        )
 
 class ActionPlugin(BaseAdminPlugin):
 
@@ -130,9 +135,12 @@ class ActionPlugin(BaseAdminPlugin):
         return list_display
 
     def get_list_display_links(self, list_display_links):
-        if self.actions:
-            if len(list_display_links) == 1 and list_display_links[0] == 'action_checkbox':
-                return list(self.admin_view.list_display[1:2])
+        if (
+            self.actions
+            and len(list_display_links) == 1
+            and list_display_links[0] == 'action_checkbox'
+        ):
+            return list(self.admin_view.list_display[1:2])
         return list_display_links
 
     def get_context(self, context):
@@ -196,21 +204,13 @@ class ActionPlugin(BaseAdminPlugin):
         actions = [self.get_action(action) for action in self.global_actions]
 
         for klass in self.admin_view.__class__.mro()[::-1]:
-            class_actions = getattr(klass, 'actions', [])
-            if not class_actions:
-                continue
-            actions.extend([self.get_action(action) for action in class_actions])
+            if class_actions := getattr(klass, 'actions', []):
+                actions.extend([self.get_action(action) for action in class_actions])
 
         # get_action might have returned None, so filter any of those out.
         actions = filter(None, actions)
 
-        # Convert the actions into a SortedDict keyed by name.
-        actions = SortedDict([
-            (name, (ac, name, desc))
-            for ac, name, desc in actions
-        ])
-
-        return actions
+        return SortedDict([(name, (ac, name, desc)) for ac, name, desc in actions])
 
     def get_action_choices(self):
         """

@@ -30,10 +30,7 @@ class UserAdmin(object):
         pass
 
     def get_model_form(self, **kwargs):
-        if self.org_obj is None:
-            self.form = UserCreationForm
-        else:
-            self.form = UserChangeForm
+        self.form = UserCreationForm if self.org_obj is None else UserChangeForm
         return super(UserAdmin, self).get_model_form(**kwargs)
 
     def get_form_layout(self):

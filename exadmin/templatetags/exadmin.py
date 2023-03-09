@@ -10,7 +10,7 @@ def view_block(context, block_name, *args, **kwargs):
 
     admin_view = context['admin_view']
     nodes = []
-    method_name = 'block_%s' % block_name
+    method_name = f'block_{block_name}'
 
     for view in [admin_view] + admin_view.plugins:
         if hasattr(view, method_name) and callable(getattr(view, method_name)):
@@ -18,14 +18,11 @@ def view_block(context, block_name, *args, **kwargs):
             result = block_func(context, nodes, *args, **kwargs)
             if result and type(result) in (str, unicode):
                 nodes.append(result)
-    if nodes:
-        return ''.join(nodes)
-    else:
-        return ""
+    return ''.join(nodes) if nodes else ""
     
 @register.filter
 def admin_urlname(value, arg):
-    return 'admin:%s_%s_%s' % (value.app_label, value.module_name, arg)
+    return f'admin:{value.app_label}_{value.module_name}_{arg}'
 
 if 'django.contrib.staticfiles' in settings.INSTALLED_APPS:
     from django.contrib.staticfiles.templatetags.staticfiles import static

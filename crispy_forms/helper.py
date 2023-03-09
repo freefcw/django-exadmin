@@ -41,12 +41,11 @@ class DynamicLayoutHandler(object):
         self._check_layout_and_form()
         layout_field_names = self.layout.get_field_names()
 
-        # Let's filter all fields with widgets like widget_type
-        filtered_fields = []
-        for pointer in layout_field_names:
-            if isinstance(self.form.fields[pointer[1]].widget, widget_type):
-                filtered_fields.append(pointer)
-
+        filtered_fields = [
+            pointer
+            for pointer in layout_field_names
+            if isinstance(self.form.fields[pointer[1]].widget, widget_type)
+        ]
         return LayoutSlice(self.layout, filtered_fields)
 
     def exclude_by_widget(self, widget_type):
@@ -56,12 +55,11 @@ class DynamicLayoutHandler(object):
         self._check_layout_and_form()
         layout_field_names = self.layout.get_field_names()
 
-        # Let's exclude all fields with widgets like widget_type
-        filtered_fields = []
-        for pointer in layout_field_names:
-            if not isinstance(self.form.fields[pointer[1]].widget, widget_type):
-                filtered_fields.append(pointer)
-
+        filtered_fields = [
+            pointer
+            for pointer in layout_field_names
+            if not isinstance(self.form.fields[pointer[1]].widget, widget_type)
+        ]
         return LayoutSlice(self.layout, filtered_fields)
 
     def __getitem__(self, key):
@@ -70,24 +68,22 @@ class DynamicLayoutHandler(object):
         and not a copy.
         """
         # when key is a string containing the field name
-        if isinstance(key, basestring):
-            # Django templates access FormHelper attributes using dictionary [] operator
-            # This could be a helper['form_id'] access, not looking for a field
-            if hasattr(self, key):
-                return getattr(self, key)
+        if not isinstance(key, basestring):
+            return LayoutSlice(self.layout, key)
+        # Django templates access FormHelper attributes using dictionary [] operator
+        # This could be a helper['form_id'] access, not looking for a field
+        if hasattr(self, key):
+            return getattr(self, key)
 
-            self._check_layout()
-            layout_field_names = self.layout.get_field_names()
+        self._check_layout()
+        layout_field_names = self.layout.get_field_names()
 
-            filtered_field = []
-            for pointer in layout_field_names:
-                # There can be an empty pointer
-                if len(pointer) == 2 and pointer[1] == key:
-                    filtered_field.append(pointer)
-
-            return LayoutSlice(self.layout, filtered_field)
-
-        return LayoutSlice(self.layout, key)
+        filtered_field = [
+            pointer
+            for pointer in layout_field_names
+            if len(pointer) == 2 and pointer[1] == key
+        ]
+        return LayoutSlice(self.layout, filtered_field)
 
 
 class FormHelper(DynamicLayoutHandler):
@@ -255,16 +251,15 @@ class FormHelper(DynamicLayoutHandler):
         # If the user has Meta.fields defined, not included in the layout
         # we suppose they need to be rendered. Otherwise we render the
         # layout fields strictly
-        if hasattr(form, 'Meta'):
-            if hasattr(form.Meta, 'fields'):
-                current_fields = set(getattr(form, 'fields', []))
-                meta_fields = set(getattr(form.Meta, 'fields'))
+        if hasattr(form, 'Meta') and hasattr(form.Meta, 'fields'):
+            current_fields = set(getattr(form, 'fields', []))
+            meta_fields = set(getattr(form.Meta, 'fields'))
 
-                fields_to_render = current_fields & meta_fields
-                left_fields_to_render = fields_to_render - form.rendered_fields
+            fields_to_render = current_fields & meta_fields
+            left_fields_to_render = fields_to_render - form.rendered_fields
 
-                for field in left_fields_to_render:
-                    html += render_field(field, form, self.form_style, context)
+            for field in left_fields_to_render:
+                html += render_field(field, form, self.form_style, context)
 
         return mark_safe(html)
 
@@ -272,8 +267,7 @@ class FormHelper(DynamicLayoutHandler):
         """
         Used by crispy_forms_tags to get helper attributes
         """
-        items = {}
-        items['form_method'] = self.form_method.strip()
+        items = {'form_method': self.form_method.strip()}
         items['form_tag'] = self.form_tag
         items['form_style'] = self.form_style.strip()
         items['form_show_errors'] = self.form_show_errors
@@ -290,13 +284,14 @@ class FormHelper(DynamicLayoutHandler):
             items['attrs']['id'] = self.form_id.strip()
         if self.form_class:
             # uni_form TEMPLATE PACK has a uniForm class by default
-            if getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap') == 'uni_form':
-                items['attrs']['class'] = "uniForm %s" % self.form_class.strip()
-            else:
-                items['attrs']['class'] = self.form_class.strip()
-        else:
-            if getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap') == 'uni_form':
-                items['attrs']['class'] = self.attrs.get('class', '') + " uniForm"
+            items['attrs']['class'] = (
+                f"uniForm {self.form_class.strip()}"
+                if getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap')
+                == 'uni_form'
+                else self.form_class.strip()
+            )
+        elif getattr(settings, 'CRISPY_TEMPLATE_PACK', 'bootstrap') == 'uni_form':
+            items['attrs']['class'] = self.attrs.get('class', '') + " uniForm"
 
         items['flat_attrs'] = flatatt(items['attrs'])
 

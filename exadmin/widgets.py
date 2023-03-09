@@ -21,12 +21,14 @@ class AdminDateWidget(forms.DateInput):
     def __init__(self, attrs=None, format=None):
         final_attrs = {'class': 'date-field', 'size': '10'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminDateWidget, self).__init__(attrs=final_attrs, format=format)
 
     def render(self, name, value, attrs=None):
         input_html = super(AdminDateWidget, self).render(name, value, attrs)
-        return mark_safe('<div class="input-append date">%s<span class="add-on"><i class="icon-calendar"></i></span></div>' % input_html)
+        return mark_safe(
+            f'<div class="input-append date">{input_html}<span class="add-on"><i class="icon-calendar"></i></span></div>'
+        )
 
 class AdminTimeWidget(forms.TimeInput):
 
@@ -38,12 +40,14 @@ class AdminTimeWidget(forms.TimeInput):
     def __init__(self, attrs=None, format=None):
         final_attrs = {'class': 'time-field', 'size': '8'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminTimeWidget, self).__init__(attrs=final_attrs, format=format)
 
     def render(self, name, value, attrs=None):
         input_html = super(AdminTimeWidget, self).render(name, value, attrs)
-        return mark_safe('<div class="input-append time">%s<span class="add-on"><i class="icon-time"></i></span></div>' % input_html)
+        return mark_safe(
+            f'<div class="input-append time">{input_html}<span class="add-on"><i class="icon-time"></i></span></div>'
+        )
 
 class AdminSplitDateTime(forms.SplitDateTimeWidget):
     """
@@ -56,8 +60,9 @@ class AdminSplitDateTime(forms.SplitDateTimeWidget):
         forms.MultiWidget.__init__(self, widgets, attrs)
 
     def format_output(self, rendered_widgets):
-        return mark_safe(u'<div class="datetime">%s - %s</div>' % \
-            (rendered_widgets[0], rendered_widgets[1]))
+        return mark_safe(
+            f'<div class="datetime">{rendered_widgets[0]} - {rendered_widgets[1]}</div>'
+        )
 
 class AdminRadioInput(RadioInput):
 
@@ -66,11 +71,13 @@ class AdminRadioInput(RadioInput):
         value = value or self.value
         attrs = attrs or self.attrs
         if 'id' in self.attrs:
-            label_for = ' for="%s_%s"' % (self.attrs['id'], self.index)
+            label_for = f""" for="{self.attrs['id']}_{self.index}\""""
         else:
             label_for = ''
         choice_label = conditional_escape(force_unicode(self.choice_label))
-        return mark_safe(u'<label%s class="radio %s">%s %s</label>' % (label_for, attrs.get('class', ''), self.tag(), choice_label))
+        return mark_safe(
+            f"""<label{label_for} class="radio {attrs.get('class', '')}">{self.tag()} {choice_label}</label>"""
+        )
 
 class AdminRadioFieldRenderer(RadioFieldRenderer):
 
@@ -96,13 +103,13 @@ class AdminCheckboxSelect(forms.CheckboxSelectMultiple):
         final_attrs = self.build_attrs(attrs, name=name)
         output = []
         # Normalize to strings
-        str_values = set([force_unicode(v) for v in value])
+        str_values = {force_unicode(v) for v in value}
         for i, (option_value, option_label) in enumerate(chain(self.choices, choices)):
             # If an ID attribute was given, add a numeric index as a suffix,
             # so that the checkboxes don't all have the same ID attribute.
             if has_id:
-                final_attrs = dict(final_attrs, id='%s_%s' % (attrs['id'], i))
-                label_for = u' for="%s"' % final_attrs['id']
+                final_attrs = dict(final_attrs, id=f"{attrs['id']}_{i}")
+                label_for = f""" for="{final_attrs['id']}\""""
             else:
                 label_for = ''
 
@@ -110,46 +117,46 @@ class AdminCheckboxSelect(forms.CheckboxSelectMultiple):
             option_value = force_unicode(option_value)
             rendered_cb = cb.render(name, option_value)
             option_label = conditional_escape(force_unicode(option_label))
-            output.append(u'<label%s class="checkbox %s">%s %s</label>' % (label_for, final_attrs.get('class', ''), rendered_cb, option_label))
+            output.append(
+                f"""<label{label_for} class="checkbox {final_attrs.get('class', '')}">{rendered_cb} {option_label}</label>"""
+            )
         return mark_safe(u'\n'.join(output))
 
 class AdminFileWidget(forms.ClearableFileInput):
-    template_with_initial = (u'<p class="file-upload">%s</p>'
-                            % forms.ClearableFileInput.template_with_initial)
-    template_with_clear = (u'<span class="clearable-file-input">%s</span>'
-                           % forms.ClearableFileInput.template_with_clear)
+    template_with_initial = f'<p class="file-upload">{forms.ClearableFileInput.template_with_initial}</p>'
+    template_with_clear = f'<span class="clearable-file-input">{forms.ClearableFileInput.template_with_clear}</span>'
 
 class AdminTextareaWidget(forms.Textarea):
     def __init__(self, attrs=None):
         final_attrs = {'class': 'textarea-field'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminTextareaWidget, self).__init__(attrs=final_attrs)
 
 class AdminTextInputWidget(forms.TextInput):
     def __init__(self, attrs=None):
         final_attrs = {'class': 'text-field'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminTextInputWidget, self).__init__(attrs=final_attrs)
 
 class AdminURLFieldWidget(forms.TextInput):
     def __init__(self, attrs=None):
         final_attrs = {'class': 'url-field'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminURLFieldWidget, self).__init__(attrs=final_attrs)
 
 class AdminIntegerFieldWidget(forms.TextInput):
     def __init__(self, attrs=None):
         final_attrs = {'class': 'int-field'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminIntegerFieldWidget, self).__init__(attrs=final_attrs)
 
 class AdminCommaSeparatedIntegerFieldWidget(forms.TextInput):
     def __init__(self, attrs=None):
         final_attrs = {'class': 'sep-int-field'}
         if attrs is not None:
-            final_attrs.update(attrs)
+            final_attrs |= attrs
         super(AdminCommaSeparatedIntegerFieldWidget, self).__init__(attrs=final_attrs)

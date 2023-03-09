@@ -24,17 +24,18 @@ class TopNavPlugin(BaseAdminPlugin):
         for model in models:
             app_label = model._meta.app_label
 
-            if self.has_model_perm(model, "change"):
+            if self.has_model_perm(model, "change") and getattr(
+                self.admin_site._registry[model], 'search_fields', None
+            ):
                 info = (app_label, model._meta.module_name)
-                if getattr(self.admin_site._registry[model], 'search_fields', None):
-                    try:
-                        search_models.append({
-                            'title': _('Search %s') % capfirst(model._meta.verbose_name_plural),
-                            'url': reverse('admin:%s_%s_changelist' % info, current_app=site_name),
-                            'model': model
-                            })
-                    except NoReverseMatch:
-                        pass
+                try:
+                    search_models.append({
+                        'title': _('Search %s') % capfirst(model._meta.verbose_name_plural),
+                        'url': reverse('admin:%s_%s_changelist' % info, current_app=site_name),
+                        'model': model
+                        })
+                except NoReverseMatch:
+                    pass
         nodes.append(loader.render_to_string('admin/blocks/topnav.html', {'search_models': search_models, 'search_name': SEARCH_VAR}))
 
     def block_top_nav_btn(self, context, nodes):

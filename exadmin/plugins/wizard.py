@@ -36,7 +36,7 @@ class WizardFormPlugin(BaseAdminPlugin):
 
             assert len(self.wizard_form_list) > 0, 'at least one form is needed'
 
-            for i, form in enumerate(self.wizard_form_list):
+            for form in self.wizard_form_list:
                 init_form_list[unicode(form[0])] = form[1]
 
             self._form_list = init_form_list
@@ -62,7 +62,6 @@ class WizardFormPlugin(BaseAdminPlugin):
             self.storage.reset()
             self.storage.current_step = self.steps.first
 
-            self.admin_view.model_form = self.get_step_form()
         else:
             # Look for a wizard_goto_step element in the posted data which
             # contains a valid step name. If one was found, render the requested
@@ -86,8 +85,8 @@ class WizardFormPlugin(BaseAdminPlugin):
                 # form refreshed, change current step
                 self.storage.current_step = form_current_step
 
-            # get the form for the current step
-            self.admin_view.model_form = self.get_step_form()
+
+        self.admin_view.model_form = self.get_step_form()
 
     def get_form_layout(self, __):
         attrs = self.get_form_list()[self.steps.current]
@@ -136,10 +135,7 @@ class WizardFormPlugin(BaseAdminPlugin):
         return datas
 
     def valid_forms(self, __):
-        if self.wizard_goto_step:
-            # goto get_response directly
-            return False
-        return __()
+        return False if self.wizard_goto_step else __()
     
     def _done(self):
         cleaned_data = self.get_all_cleaned_data()
@@ -208,11 +204,9 @@ class WizardFormPlugin(BaseAdminPlugin):
                     elif hasattr(self.admin_view, str(callback)):
                         getattr(self.admin_view, str(callback))(self, cleaned_data, form_obj)
                 elif isinstance(form_obj.cleaned_data, (tuple, list)):
-                    cleaned_data.update({
-                        'formset-%s' % form_key: form_obj.cleaned_data
-                    })
+                    cleaned_data[f'formset-{form_key}'] = form_obj.cleaned_data
                 else:
-                    cleaned_data.update(form_obj.cleaned_data)
+                    cleaned_data |= form_obj.cleaned_data
         return cleaned_data
 
     def get_cleaned_data_for_step(self, step):
@@ -237,9 +231,7 @@ class WizardFormPlugin(BaseAdminPlugin):
             step = self.steps.current
         form_list = self.get_form_list()
         key = form_list.keyOrder.index(step) + 1
-        if len(form_list.keyOrder) > key:
-            return form_list.keyOrder[key]
-        return None
+        return form_list.keyOrder[key] if len(form_list.keyOrder) > key else None
 
     def get_prev_step(self, step=None):
         """
@@ -251,9 +243,7 @@ class WizardFormPlugin(BaseAdminPlugin):
             step = self.steps.current
         form_list = self.get_form_list()
         key = form_list.keyOrder.index(step) - 1
-        if key >= 0:
-            return form_list.keyOrder[key]
-        return None
+        return form_list.keyOrder[key] if key >= 0 else None
 
     def get_step_index(self, step=None):
         """
